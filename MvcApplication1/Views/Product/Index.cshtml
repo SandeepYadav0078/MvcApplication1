@@ -1,0 +1,376 @@
+﻿@{
+    ViewBag.Title = "Product";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<!--LOADING STYLESHEET FOR PAGE-->
+<link type="text/css" rel="stylesheet" href="~/Content/vendors/DataTables/media/css/jquery.dataTables.css" />
+<link type="text/css" rel="stylesheet" href="~/Content/vendors/DataTables/extensions/TableTools/css/dataTables.tableTools.min.css" />
+<link type="text/css" rel="stylesheet" href="~/Content/vendors/DataTables/media/css/dataTables.bootstrap.css" />
+<script src="~/Content/vendors/DataTables/media/js/jquery.dataTables.js"></script>
+<script src="~/Content/vendors/DataTables/media/js/dataTables.bootstrap.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $(".only-numeric").keyup(function (e) {
+            this.value = this.value.replace(/[^0-9\.]/g, ''); 
+        });
+        $('.only-number').keyup(function () {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+        $('.only-numbertill').keyup(function () {
+            this.value = this.value.replace(/[^0-9]/g, '');
+            if ($(this).val() > 100) {
+                alert("No numbers above 100");
+                $(this).val('100');
+            }
+        });
+        FillCategory();
+        FillData();
+        $(".datepicker").datepicker({
+            Format: "yy/mm/dd"
+        });
+        $('.dataTables_filter input[type="search"]').
+            attr('placeholder', 'Search Product Name ....').
+           css({ 'width': '200px', 'display': 'inline-block' });
+    });
+
+
+    function FillCategory() {
+        $.ajax({
+            type: "GET",
+            url: "@Url.Action("GetAll","Category")",
+            dataType: "json",
+            contentType: "application/json",
+            success: function (res) {
+                $.each(res, function (data, value) {
+
+                    $("#ddlCategory").append($("<option></option>").val(value.CategoryID).html(value.Name));
+                })
+            }
+
+        });
+    }
+    function FillData() {
+
+
+        var spinner = $(".spinner").spinner();
+        var table = $('#Productgrid').DataTable({
+            "processing": true,
+            "iDisplayLength": 10,            
+            "bLengthChange": false,
+            "bDestroy": true,
+            "ajax": {
+                "url": "@Url.Action("GetAll","Product")",
+                "type": "GET"
+            },
+            "columns": [
+                { "data": "ProductID", "visible": false },
+                { "data": "CategoryName" },
+                { "data": "Name" },
+                 { "data": "Quantity" },
+                  { "data": "Price" },
+                   { "data": "Discount" },
+                    { "data": "ExpirationDate", "visible": false },
+                      { "data": "Description", "visible": false },
+                 { "data": "CategoryID", "visible": false },
+                {
+                    "orderable": false,
+                    "searchable": false,
+                    "render": function (data, type, row) {
+                        return '<button type="button" onclick="EditData(this);" class="btn btn-default btn-xs"><i class="fa fa-edit"></i>&nbsp;Edit</button> &nbsp; <button type="button" onclick="DeleteRow(this);" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i>&nbsp; Delete</button>'
+                    }
+                }
+
+            ]
+
+        });
+
+
+    }
+
+</script>
+<script type="text/javascript">
+    function EditData(s) {
+        var ser = $('#Productgrid').DataTable();
+        var data = ser.row($(s).parents('tr')).data();
+        $("[id*=txt_Name]").val(data.Name);
+        $("[id*=ddlCategory]").val(data.CategoryID);
+        $("[id*=txt_Description]").val(data.Description);
+        $("[id*=txt_Qty]").val(data.Quantity);
+        $("[id*=txt_Price]").val(data.Price);
+        $("[id*=txt_Discount]").val(data.Discount);
+        $("[id*=txt_Expiration]").val(data.ExpirationDate);
+        $("#txt_Expiration").datepicker('setDate', data.ExpirationDate);
+        $("[id*=txt_ProductID]").val(data.ProductID);
+       
+    }
+    function formatDate(date) {
+        var d = new Date(date),
+            month = '' + (d.getMonth() + 1),
+            day = '' + d.getDate(),
+            year = d.getFullYear();
+
+        if (month.length < 2)
+            month = '0' + month;
+        if (day.length < 2)
+            day = '0' + day;
+
+        return [year, month, day].join('-');
+    }
+    function DeleteRow(s) {
+        var ser = $('#Productgrid').DataTable();
+        var data = ser.row($(s).parents('tr')).data();
+        var con = confirm("Are you sure you want to delete product : " + data.Name)
+
+        if (con) {
+          
+            $.ajax({
+                url: "/Product/delete?id=" + data.ProductID,
+                type: "DELETE",
+                contentType: false,
+                processData: false,
+                data: "",
+                dataType: "json",
+                success: function (Response) {
+
+                    if (Response.Success) {
+
+                        $("#infobox").html(Response.Message);
+                        ser.row($(s).parents('tr')).remove().draw();
+                        // FillData();
+
+                    }
+                    else {
+                        $("#infobox").html(Response.Message);
+                    }
+                    clearAll();
+                },
+                error: function (err) {
+
+                    console.log(err.statusText);
+
+                }
+            });
+        }
+        else {
+            // Nothing to do here
+        }
+
+    }
+
+    function SaveData() {
+
+
+        $('#infobox').html("Please wait... <img src='../../Content/vendors/pageloader/images/loader4.gif' />");
+
+        if ($("[id*=ddlCategory]").val() == "0") {
+            $("#infobox").html("Please Select Category Name")
+            return false;
+        }
+        if ($("[id*=txt_Name]").val() == "") {
+            $("#infobox").html("Please Fill Product Name")
+            return false;
+        }
+        if ($("[id*=txt_Description]").val() == "") {
+            $("#infobox").html("Please Fill Description")
+            return false;
+        }
+        if ($("[id*=txt_Qty]").val() == "") {
+            $("#infobox").html("Please Fill Quantity")
+            return false;
+        }
+        if ($("[id*=txt_Price]").val() == "") {
+            $("#infobox").html("Please Fill Price")
+            return false;
+        }
+        if ($("[id*=txt_Discount]").val() == "") {
+            $("#infobox").html("Please Fill Discount")
+            return false;
+        }
+        if ($("[id*=txt_Expiration]").val() == "") {
+            $("#infobox").html("Please Fill Expiration")
+            return false;
+        }
+        
+       
+
+        var loginFrm = new FormData();
+        loginFrm.append("CategoryID", $("[id*=ddlCategory]").val());
+        loginFrm.append("ProductID", $("[id*=txt_ProductID]").val());
+        loginFrm.append("Name", $("[id*=txt_Name]").val());
+        loginFrm.append("Description", $("[id*=txt_Description]").val());
+        loginFrm.append("Quantity", $("[id*=txt_Qty]").val());
+        loginFrm.append("Discount", $("[id*=txt_Discount]").val());
+        loginFrm.append("Price", $("[id*=txt_Price]").val());
+        loginFrm.append("ExpirationDate", $("[id*=txt_Expiration]").val());
+        $.ajax({
+            url: "/Product/AddProduct",
+            type: "POST",
+            contentType: false,
+            processData: false,
+            data: loginFrm,
+            dataType: "json",
+            success: function (Response) {
+
+                if (Response.Success) {
+
+                    $("#infobox").html(Response.Message);
+
+                    FillData();
+                  
+                }
+                else {
+                    $("#infobox").html(Response.Message);                 
+
+                }
+                clearAll();
+            },
+            error: function (err) {
+
+                console.log(err.statusText);
+
+            }
+        });
+
+    }
+
+    function clearAll() {
+
+        $("[id*=txt_Name]").val("");
+        $("[id*=ddlCategory]").val("0");
+        $("[id*=txt_Description]").val("");
+        $("[id*=txt_Qty]").val("");
+        $("[id*=txt_Price]").val("");
+        $("[id*=txt_Discount]").val("");
+        $("[id*=txt_Expiration]").val("");
+        $("[id*=txt_ProductID]").val("0");
+    }
+</script>
+<div id="title-breadcrumb-option-demo" class="page-title-breadcrumb">
+    <div class="page-header pull-left">
+        <div class="page-title">Product Master</div>
+    </div>
+    <ol class="breadcrumb page-breadcrumb">
+        <li><i class="fa fa-home"></i>&nbsp;<a href="#">Home</a>&nbsp;&nbsp;<i class="fa fa-angle-right"></i>&nbsp;&nbsp;</li>
+
+        <li class="active">Product Master</li>
+    </ol>
+    <div class="btn btn-blue reportrange hide"><i class="fa fa-calendar"></i>&nbsp;<span></span>&nbsp;report&nbsp;<i class="fa fa-angle-down"></i><input type="hidden" name="datestart" /><input type="hidden" name="endstart" /></div>
+    <div class="clearfix"></div>
+</div>
+
+<div class="page-content">
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="panel panel-yellow">
+                <div class="panel-heading">Add New Product</div>
+                <div class="panel-body pan">
+                    <div class="form-horizontal">
+                        <div class="form-body pal">
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Category Name</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <select id="ddlCategory" name="ddlCategory" class="form-control">
+                                            <option value="0">--Select--</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Product Name</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <input id="txt_Name" type="text" placeholder="" maxlength="50" class="form-control" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Description</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <input id="txt_Description" type="text"  maxlength="100" class="form-control" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Quantity</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <input id="txt_Qty" type="text"  maxlength="5" class="form-control only-number" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Price</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <input id="txt_Price" type="text" maxlength="8" class="form-control only-numeric" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Discount(%)</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <input id="txt_Discount" type="text"  maxlength="3" class="form-control only-numbertill" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputName" class="col-md-3 control-label">Expiration Date</label><div class="col-md-9">
+                                    <div class="input-icon right">
+                                        <input id="txt_Expiration" type="text"  maxlength="10" class="form-control datepicker" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-actions pal">
+                            <div class="form-group mbn">
+                                <div class="col-md-offset-3 col-md-3">
+                                    <button type="submit" class="btn btn-success" onclick="SaveData();">Save</button>
+                                    <input type="hidden" id="txt_ProductID" value="0" />
+                                </div>
+                                <div id="infobox" class="col-md-6" style="color: red;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-lg-6">
+            <div class="portlet box">
+                <div class="portlet-header" style="display: block;">
+                    <div class="caption"> Product List</div>
+                </div>
+                <div class="portlet-body">
+                    <div class="row mbm">
+                        <div class="col-lg-12">
+                            <div class="table-responsive">
+                                <div id="table_id_wrapper" class="dataTables_wrapper form-inline no-footer">
+
+                                    <table id="Productgrid" class="table table-hover table-striped table-bordered table-advanced tablesorter display dataTable no-footer">
+                                        <thead>
+                                            <tr>
+                                                <th width="1%"></th>
+                                                <th width="10%">Category</th>
+                                                <th width="10%">Product Name</th>
+                                                <th width="5%">Quantity</th>
+                                                <th width="10%">Price</th>
+                                                <th width="10%">Discount</th>                                              
+                                                <th width="1%"></th>
+                                                <th width="1%"></th>
+                                                <th width="1%"></th>
+                                                <th width="20%">Actions</th>
+
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
